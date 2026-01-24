@@ -47,11 +47,7 @@ pub trait Action: Send + Sync {
     ///
     /// Returns Some(Box<dyn Any>) with action-specific match data if there's a match,
     /// or None if no match. The match data is passed to execute() later.
-    fn check_match(
-        &self,
-        content: &str,
-        pattern: &str,
-    ) -> Result<Option<Box<dyn Any + Send>>>;
+    fn check_match(&self, content: &str, pattern: &str) -> Result<Option<Box<dyn Any + Send>>>;
 
     /// Executes the action using the match data from check_match
     ///

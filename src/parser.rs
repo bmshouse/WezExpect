@@ -46,7 +46,7 @@ fn parse_time_string(time_str: &str) -> Result<(u32, u32)> {
     };
 
     // Validate ranges
-    if hour < 1 || hour > 12 {
+    if !(1..=12).contains(&hour) {
         anyhow::bail!("Hour must be between 1 and 12: {}", hour);
     }
     if minute >= 60 {
@@ -60,12 +60,10 @@ fn parse_time_string(time_str: &str) -> Result<(u32, u32)> {
         } else {
             hour + 12 // 1pm = 13:00, etc.
         }
+    } else if hour == 12 {
+        0 // 12am = 00:00
     } else {
-        if hour == 12 {
-            0 // 12am = 00:00
-        } else {
-            hour // 1am = 01:00, etc.
-        }
+        hour // 1am = 01:00, etc.
     };
 
     Ok((hour_24, minute))
@@ -116,7 +114,7 @@ pub fn parse_reset_time(time_str: &str, tz_str: &str) -> Result<chrono::DateTime
             target,
             now
         );
-        target = target + Duration::days(1);
+        target += Duration::days(1);
     }
 
     let duration_until = (target - now)

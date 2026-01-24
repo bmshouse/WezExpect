@@ -17,7 +17,7 @@ pub struct PaneInfo {
 /// Discover all available WezTerm panes
 pub async fn list_panes() -> Result<Vec<PaneInfo>> {
     let output = Command::new("wezterm")
-        .args(&["cli", "list", "--format", "json"])
+        .args(["cli", "list", "--format", "json"])
         .output()
         .await
         .context("Failed to execute 'wezterm cli list'. Is WezTerm installed and in PATH?")?;
@@ -27,11 +27,11 @@ pub async fn list_panes() -> Result<Vec<PaneInfo>> {
         anyhow::bail!("wezterm cli list failed: {}", stderr);
     }
 
-    let stdout = String::from_utf8(output.stdout)
-        .context("wezterm cli list output is not valid UTF-8")?;
+    let stdout =
+        String::from_utf8(output.stdout).context("wezterm cli list output is not valid UTF-8")?;
 
-    let panes: Vec<PaneInfo> = serde_json::from_str(&stdout)
-        .context("Failed to parse wezterm cli list JSON output")?;
+    let panes: Vec<PaneInfo> =
+        serde_json::from_str(&stdout).context("Failed to parse wezterm cli list JSON output")?;
 
     Ok(panes)
 }
@@ -71,12 +71,7 @@ pub async fn select_pane(config_pane_id: Option<u32>) -> Result<u32> {
     if panes.len() > 1 {
         tracing::info!("Available panes:");
         for pane in &panes {
-            tracing::info!(
-                "  - Pane {}: '{}' ({})",
-                pane.pane_id,
-                pane.title,
-                pane.cwd
-            );
+            tracing::info!("  - Pane {}: '{}' ({})", pane.pane_id, pane.title, pane.cwd);
         }
         tracing::info!(
             "To monitor a specific pane, add 'pane_id = {}' in config.toml [pane] section",
@@ -97,7 +92,10 @@ mod tests {
         // It's here to document expected behavior and verify deserialization works
         if let Ok(panes) = list_panes().await {
             // If WezTerm is running, we should get at least one pane
-            assert!(!panes.is_empty(), "Expected at least one pane when WezTerm is running");
+            assert!(
+                !panes.is_empty(),
+                "Expected at least one pane when WezTerm is running"
+            );
 
             for pane in panes {
                 // Verify the structure deserialized correctly by checking all fields exist

@@ -61,8 +61,12 @@ impl Action for ConditionalAction {
         let cond_config = self.parse_config(config)?;
 
         // Validate condition_pattern compiles
-        Regex::new(&cond_config.condition_pattern)
-            .with_context(|| format!("Invalid condition_pattern: {}", cond_config.condition_pattern))?;
+        Regex::new(&cond_config.condition_pattern).with_context(|| {
+            format!(
+                "Invalid condition_pattern: {}",
+                cond_config.condition_pattern
+            )
+        })?;
 
         // Validate commands are not empty
         if cond_config.then_command.trim().is_empty() {
@@ -80,11 +84,7 @@ impl Action for ConditionalAction {
         Ok(())
     }
 
-    fn check_match(
-        &self,
-        content: &str,
-        pattern: &str,
-    ) -> Result<Option<Box<dyn Any + Send>>> {
+    fn check_match(&self, content: &str, pattern: &str) -> Result<Option<Box<dyn Any + Send>>> {
         let re = Regex::new(pattern)?;
 
         if re.is_match(content) {
@@ -137,8 +137,8 @@ impl Action for ConditionalAction {
             .unwrap_or("");
 
         // 6. Compile condition pattern
-        let condition_re = Regex::new(&cond_config.condition_pattern)
-            .context("Invalid condition_pattern")?;
+        let condition_re =
+            Regex::new(&cond_config.condition_pattern).context("Invalid condition_pattern")?;
 
         // 7. Test condition
         let condition_met = condition_re.is_match(target_capture);
@@ -156,7 +156,11 @@ impl Action for ConditionalAction {
             if condition_met { "MET" } else { "NOT MET" },
             target_capture,
             cond_config.condition_pattern,
-            if condition_met { "then_command" } else { "else_command" }
+            if condition_met {
+                "then_command"
+            } else {
+                "else_command"
+            }
         );
 
         // 9. Send the selected command
@@ -191,10 +195,7 @@ mod tests {
             "else_command".to_string(),
             toml::Value::String(else_cmd.to_string()),
         );
-        extra.insert(
-            "apply_to_capture".to_string(),
-            toml::Value::Integer(1),
-        );
+        extra.insert("apply_to_capture".to_string(), toml::Value::Integer(1));
 
         ActionConfig {
             action_type: "conditional".to_string(),
@@ -350,10 +351,7 @@ mod tests {
             "else_command".to_string(),
             toml::Value::String("echo 'Build failed'\n".to_string()),
         );
-        extra.insert(
-            "apply_to_capture".to_string(),
-            toml::Value::Integer(1),
-        );
+        extra.insert("apply_to_capture".to_string(), toml::Value::Integer(1));
 
         let config = ActionConfig {
             action_type: "conditional".to_string(),
@@ -401,10 +399,7 @@ mod tests {
             "else_command".to_string(),
             toml::Value::String("echo 'Build failed'\n".to_string()),
         );
-        extra.insert(
-            "apply_to_capture".to_string(),
-            toml::Value::Integer(1),
-        );
+        extra.insert("apply_to_capture".to_string(), toml::Value::Integer(1));
 
         let config = ActionConfig {
             action_type: "conditional".to_string(),

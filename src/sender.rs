@@ -54,7 +54,7 @@ pub async fn send_command(pane_id: u32, command: &str) -> Result<()> {
 /// Attempt to send a command once
 async fn try_send_command(pane_id: u32, command: &str) -> Result<()> {
     let mut child = Command::new("wezterm")
-        .args(&[
+        .args([
             "cli",
             "send-text",
             "--no-paste",
@@ -235,10 +235,7 @@ mod tests {
         // Run with: cargo test test_end_to_end_with_verification -- --ignored --nocapture
 
         // Step 1: Check if WezTerm is available
-        let wezterm_check = Command::new("wezterm")
-            .args(&["--version"])
-            .output()
-            .await;
+        let wezterm_check = Command::new("wezterm").args(["--version"]).output().await;
 
         if wezterm_check.is_err() {
             println!("WezTerm not available, skipping test");
@@ -247,7 +244,7 @@ mod tests {
 
         // Step 2: Spawn a new test pane with a shell (more reliable cross-platform)
         let spawn_output = Command::new("wezterm")
-            .args(&["cli", "spawn"])
+            .args(["cli", "spawn"])
             .output()
             .await
             .expect("Failed to spawn test pane");
@@ -267,14 +264,18 @@ mod tests {
         // Step 3: Send commands with newlines that will produce visible output
         let test_command = "echo HELLO\necho WORLD\n";
         let send_result = send_command(pane_id, test_command).await;
-        assert!(send_result.is_ok(), "Failed to send command: {:?}", send_result);
+        assert!(
+            send_result.is_ok(),
+            "Failed to send command: {:?}",
+            send_result
+        );
 
         // Give the commands time to execute
         tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
 
         // Step 4: Read back the pane content
         let get_text_output = Command::new("wezterm")
-            .args(&["cli", "get-text", "--pane-id", &pane_id.to_string()])
+            .args(["cli", "get-text", "--pane-id", &pane_id.to_string()])
             .output()
             .await
             .expect("Failed to get pane text");
@@ -305,7 +306,7 @@ mod tests {
 
         // Step 6: Clean up - kill the test pane
         let _kill_output = Command::new("wezterm")
-            .args(&["cli", "kill-pane", "--pane-id", &pane_id.to_string()])
+            .args(["cli", "kill-pane", "--pane-id", &pane_id.to_string()])
             .output()
             .await;
 
@@ -319,10 +320,7 @@ mod tests {
         // Run with: cargo test test_escape_sequences_end_to_end -- --ignored --nocapture
 
         // Check if WezTerm is available
-        let wezterm_check = Command::new("wezterm")
-            .args(&["--version"])
-            .output()
-            .await;
+        let wezterm_check = Command::new("wezterm").args(["--version"]).output().await;
 
         if wezterm_check.is_err() {
             println!("WezTerm not available, skipping test");
@@ -331,7 +329,7 @@ mod tests {
 
         // Spawn a test pane running a shell (to test the actual use case)
         let spawn_output = Command::new("wezterm")
-            .args(&["cli", "spawn"])
+            .args(["cli", "spawn"])
             .output()
             .await
             .expect("Failed to spawn test pane");
@@ -352,14 +350,18 @@ mod tests {
         // This should send: newline, then "continue", then newline
         let test_command = "echo 'TEST_MARKER'\n";
         let send_result = send_command(pane_id, test_command).await;
-        assert!(send_result.is_ok(), "Failed to send command: {:?}", send_result);
+        assert!(
+            send_result.is_ok(),
+            "Failed to send command: {:?}",
+            send_result
+        );
 
         // Give time for command to execute
         tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
 
         // Read back the pane content
         let get_text_output = Command::new("wezterm")
-            .args(&["cli", "get-text", "--pane-id", &pane_id.to_string()])
+            .args(["cli", "get-text", "--pane-id", &pane_id.to_string()])
             .output()
             .await
             .expect("Failed to get pane text");
@@ -375,7 +377,7 @@ mod tests {
 
         // Clean up
         let _kill_output = Command::new("wezterm")
-            .args(&["cli", "kill-pane", "--pane-id", &pane_id.to_string()])
+            .args(["cli", "kill-pane", "--pane-id", &pane_id.to_string()])
             .output()
             .await;
 

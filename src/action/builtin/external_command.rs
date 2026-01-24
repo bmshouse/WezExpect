@@ -108,11 +108,7 @@ impl Action for ExternalCommandAction {
         Ok(())
     }
 
-    fn check_match(
-        &self,
-        content: &str,
-        pattern: &str,
-    ) -> Result<Option<Box<dyn Any + Send>>> {
+    fn check_match(&self, content: &str, pattern: &str) -> Result<Option<Box<dyn Any + Send>>> {
         let re = Regex::new(pattern)?;
 
         if let Some(captures) = re.captures(content) {
@@ -175,13 +171,11 @@ impl Action for ExternalCommandAction {
         }
 
         // Execute with timeout
-        let output = tokio::time::timeout(
-            Duration::from_secs(ext_config.timeout_secs),
-            cmd.output(),
-        )
-        .await
-        .context("External command timed out")?
-        .context("Failed to execute external command")?;
+        let output =
+            tokio::time::timeout(Duration::from_secs(ext_config.timeout_secs), cmd.output())
+                .await
+                .context("External command timed out")?
+                .context("Failed to execute external command")?;
 
         // Log output
         if !output.stdout.is_empty() {
@@ -293,9 +287,7 @@ mod tests {
         let action = ExternalCommandAction;
         let config = create_test_config("echo 'test'");
 
-        let match_data = Box::new(ExternalCommandMatch {
-            captures: vec![],
-        });
+        let match_data = Box::new(ExternalCommandMatch { captures: vec![] });
 
         let result = action.execute(0, match_data, &config).await;
         assert!(result.is_ok());
