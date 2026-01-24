@@ -1,0 +1,37 @@
+# Wez Expect Configuration
+
+[monitor]
+# How often to check the terminal for timeout messages (in seconds)
+poll_interval_secs = 30
+
+[pane]
+# Optional: Specify a specific WezTerm pane ID to monitor
+# If not specified, the first available pane will be auto-selected
+# To find pane IDs, run: wezterm cli list
+# pane_id = 1
+
+# Rules - each rule defines a pattern to watch for and an action to take
+# Rules are checked in order, and the first matching enabled rule wins
+
+[[rules]]
+name = "timeout_message"  # Optional descriptive name for logging
+pattern = "You've hit your limit · resets (\\d{1,2}(?::\\d{2})?\\s?(?:am|pm)) \\((.*?)\\)"
+action_type = "wait_for_time"  # "wait_for_time" or "immediate"
+command = "\ncontinue\n"
+enabled = true  # Optional, defaults to true
+
+# Example: Immediate action for prompts
+# [[rules]]
+# name = "press_enter_prompt"
+# pattern = "Press Enter to continue"
+# action = "immediate"
+# command = "\n"
+# enabled = true
+
+# Example: Another wait_for_time pattern
+# [[rules]]
+# name = "session_timeout"
+# pattern = "Session expires at (\\d{1,2}(?::\\d{2})?\\s?(?:am|pm)) \\((.*?)\\)"
+# action = "wait_for_time"
+# command = "refresh"
+# enabled = false

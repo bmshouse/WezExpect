@@ -1,0 +1,67 @@
+# Rust build artifacts
+/target/
+**/*.rs.bk
+*.pdb
+
+# Cargo.lock should be tracked for binaries but ignored for libraries
+# Since this is a binary project, we include Cargo.lock
+# Uncomment the line below if this becomes a library-only project:
+# Cargo.lock
+
+# IDE / Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+*.sublime-*
+.project
+.classpath
+.settings/
+*.code-workspace
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+# Linux
+*~
+.directory
+
+# Backup files
+*.bak
+*.tmp
+*.orig
+*.rej
+
+# Logs and databases
+*.log
+*.sql
+*.sqlite
+*.db
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Test artifacts
+*.profraw
+*.profdata
+
+# Documentation build artifacts
+/docs/book/
+/docs/api/
+
+# Project-specific
+deployment.log
+events.log
+*.log.*

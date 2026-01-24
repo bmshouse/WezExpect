@@ -1,0 +1,38 @@
+[package]
+name = "wez_expect"
+version = "0.1.0"
+edition = "2021"
+authors = ["github.com/bmshouse"]
+description = "Expect-like automation for WezTerm - monitor terminal output and respond with automated actions"
+readme = "README.md"
+license = "MIT"
+keywords = ["wezterm", "terminal", "automation", "expect", "monitoring"]
+categories = ["command-line-utilities"]
+
+[lib]
+name = "wez_expect"
+path = "src/lib.rs"
+
+[[bin]]
+name = "wez_expect"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = "1"
+async-trait = "0.1"
+chrono = "0.4"
+chrono-tz = "0.8"
+clap = { version = "4", features = ["derive"] }
+regex = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["full"] }
+toml = "0.8"
+tracing = "0.1"
+tracing-subscriber = "0.3"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+strip = true
