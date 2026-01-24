@@ -25,7 +25,7 @@ pub struct Monitor {
     rules: Vec<Rule>,
     factory: Arc<dyn ActionFactory>,
     last_content: Arc<Mutex<String>>,
-    last_content_hash: Arc<Mutex<Option<u64>>>,  // Hash of content when last matched
+    last_content_hash: Arc<Mutex<Option<u64>>>, // Hash of content when last matched
 }
 
 impl Monitor {
@@ -72,11 +72,7 @@ impl Monitor {
             // Check if pattern matches
             if let Some(match_data) = action.check_match(&content, &rule.pattern)? {
                 let rule_name = rule.name.as_deref().unwrap_or("unnamed");
-                tracing::info!(
-                    "Matched rule '{}' ({})",
-                    rule_name,
-                    rule.action.action_type
-                );
+                tracing::info!("Matched rule '{}' ({})", rule_name, rule.action.action_type);
 
                 // Store content hash to prevent re-matching on unchanged content
                 *self.last_content_hash.lock().await = Some(current_hash);
@@ -95,7 +91,7 @@ impl Monitor {
     /// Wait for terminal content to change (prevents re-matching same pattern)
     pub async fn wait_for_content_change(&self, poll_interval: Duration) -> Result<()> {
         // Use hash comparison to avoid cloning large strings
-        let last_content_hash = calculate_hash(&*self.last_content.lock().await);
+        let last_content_hash = calculate_hash(&self.last_content.lock().await);
 
         loop {
             tokio::time::sleep(poll_interval).await;
@@ -115,7 +111,7 @@ impl Monitor {
     /// Get text content from the pane
     async fn get_pane_text(&self) -> Result<String> {
         let output = Command::new("wezterm")
-            .args(&[
+            .args([
                 "cli",
                 "get-text",
                 "--pane-id",
@@ -158,7 +154,7 @@ fn calculate_hash(content: &str) -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::action::{ActionConfig, factory::BuiltinActionFactory};
+    use crate::action::{factory::BuiltinActionFactory, ActionConfig};
     use crate::config::Rule;
 
     #[tokio::test]

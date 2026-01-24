@@ -31,11 +31,7 @@ impl Action for ImmediateAction {
         }
     }
 
-    fn check_match(
-        &self,
-        content: &str,
-        pattern: &str,
-    ) -> Result<Option<Box<dyn Any + Send>>> {
+    fn check_match(&self, content: &str, pattern: &str) -> Result<Option<Box<dyn Any + Send>>> {
         let re = Regex::new(pattern)?;
 
         if re.is_match(content) {

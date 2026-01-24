@@ -33,11 +33,7 @@ impl Action for WaitForTimeAction {
         }
     }
 
-    fn check_match(
-        &self,
-        content: &str,
-        pattern: &str,
-    ) -> Result<Option<Box<dyn Any + Send>>> {
+    fn check_match(&self, content: &str, pattern: &str) -> Result<Option<Box<dyn Any + Send>>> {
         // Extract time and timezone using the pattern
         let result = crate::parser::extract_time_and_timezone(content, pattern)?;
 
@@ -75,8 +71,12 @@ impl Action for WaitForTimeAction {
         );
 
         // Parse time and timezone
-        let target_time = crate::parser::parse_reset_time(time_str, tz_str)
-            .with_context(|| format!("Failed to parse time '{}' in timezone '{}'", time_str, tz_str))?;
+        let target_time = crate::parser::parse_reset_time(time_str, tz_str).with_context(|| {
+            format!(
+                "Failed to parse time '{}' in timezone '{}'",
+                time_str, tz_str
+            )
+        })?;
 
         tracing::info!("Waiting until {}", target_time);
 

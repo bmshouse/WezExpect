@@ -1,4 +1,4 @@
-/// Utility functions shared across the codebase
+//! Utility functions shared across the codebase
 
 /// Format a duration in a human-readable way
 ///

@@ -40,10 +40,8 @@ impl BuiltinActionFactory {
     where
         F: Fn() -> Box<dyn Action> + Send + Sync + 'static,
     {
-        self.factories
-            .insert(action_type.to_string(), factory_fn);
+        self.factories.insert(action_type.to_string(), factory_fn);
     }
-
 }
 
 impl ActionFactory for BuiltinActionFactory {

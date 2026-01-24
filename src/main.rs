@@ -1,9 +1,9 @@
 use anyhow::Result;
 use clap::Parser as ClapParser;
-use wez_expect::{action, Config, Monitor, select_pane};
 use tokio::signal;
 use tokio::time::{sleep, Duration};
 use tracing::{error, info, warn};
+use wez_expect::{action, select_pane, Config, Monitor};
 
 #[derive(ClapParser, Debug)]
 #[clap(author, version, about, long_about = None)]
@@ -98,7 +98,11 @@ async fn run_monitoring_loop(monitor: Monitor, config: &Config) -> Result<()> {
                 }
                 Err(e) => {
                     // Error checking pane (might be closed)
-                    warn!("Error checking pane: {}. Retrying in {}s...", e, poll_interval.as_secs());
+                    warn!(
+                        "Error checking pane: {}. Retrying in {}s...",
+                        e,
+                        poll_interval.as_secs()
+                    );
                     sleep(poll_interval).await;
                     continue;
                 }

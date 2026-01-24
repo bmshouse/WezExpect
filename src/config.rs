@@ -76,8 +76,8 @@ impl Config {
         let contents = fs::read_to_string(path.as_ref())
             .with_context(|| format!("Failed to read config file: {:?}", path.as_ref()))?;
 
-        let config: Config = toml::from_str(&contents)
-            .with_context(|| "Failed to parse config file as TOML")?;
+        let config: Config =
+            toml::from_str(&contents).with_context(|| "Failed to parse config file as TOML")?;
 
         config.validate()?;
         Ok(config)
@@ -90,7 +90,9 @@ impl Config {
         if config_path.exists() {
             Self::load(config_path)
         } else {
-            tracing::warn!("No config.toml found, using defaults. Create config.toml to customize.");
+            tracing::warn!(
+                "No config.toml found, using defaults. Create config.toml to customize."
+            );
             let config = Self::default_config();
             config.validate()?;
             Ok(config)
@@ -106,7 +108,7 @@ impl Config {
             rules: vec![Rule {
                 name: Some(String::from("default_timeout")),
                 pattern: String::from(
-                    r#"Your limit will reset at (\d{1,2}(?::\d{2})?\s?(?:am|pm)) \((.*?)\)\."#
+                    r#"Your limit will reset at (\d{1,2}(?::\d{2})?\s?(?:am|pm)) \((.*?)\)\."#,
                 ),
                 action: ActionConfig {
                     action_type: String::from("wait_for_time"),
@@ -121,7 +123,7 @@ impl Config {
 
     /// Validate the configuration
     fn validate(&self) -> Result<()> {
-        use crate::action::{ActionFactory, factory::BuiltinActionFactory};
+        use crate::action::{factory::BuiltinActionFactory, ActionFactory};
 
         // Validate poll interval is reasonable
         if self.monitor.poll_interval_secs == 0 {
@@ -154,24 +156,24 @@ impl Config {
             let rule_name = rule.name.as_deref().unwrap_or(&default_name);
 
             // Validate regex compiles
-            let re = Regex::new(&rule.pattern).with_context(|| {
-                format!("Invalid regex in {}: {}", rule_name, rule.pattern)
-            })?;
+            let re = Regex::new(&rule.pattern)
+                .with_context(|| format!("Invalid regex in {}: {}", rule_name, rule.pattern))?;
 
             // Get the action for this rule
-            let action = factory
-                .create(&rule.action.action_type)
-                .ok_or_else(|| {
-                    anyhow::anyhow!(
-                        "{} has unknown action type: '{}'",
-                        rule_name,
-                        rule.action.action_type
-                    )
-                })?;
+            let action = factory.create(&rule.action.action_type).ok_or_else(|| {
+                anyhow::anyhow!(
+                    "{} has unknown action type: '{}'",
+                    rule_name,
+                    rule.action.action_type
+                )
+            })?;
 
             // Validate action-specific config
             action.validate_config(&rule.action).with_context(|| {
-                format!("Invalid configuration for {} ({})", rule_name, rule.action.action_type)
+                format!(
+                    "Invalid configuration for {} ({})",
+                    rule_name, rule.action.action_type
+                )
             })?;
 
             // Validate capture group requirements
