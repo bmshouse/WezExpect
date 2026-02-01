@@ -3,6 +3,7 @@
 [monitor]
 # How often to check the terminal for timeout messages (in seconds)
 poll_interval_secs = 30
+lookback_lines = 10
 
 [pane]
 # Optional: Specify a specific WezTerm pane ID to monitor
@@ -17,21 +18,12 @@ poll_interval_secs = 30
 name = "timeout_message"  # Optional descriptive name for logging
 pattern = "You've hit your limit · resets (\\d{1,2}(?::\\d{2})?\\s?(?:am|pm)) \\((.*?)\\)"
 action_type = "wait_for_time"  # "wait_for_time" or "immediate"
-command = "\ncontinue\n"
+command = "1continue\r"
 enabled = true  # Optional, defaults to true
 
-# Example: Immediate action for prompts
-# [[rules]]
-# name = "press_enter_prompt"
-# pattern = "Press Enter to continue"
-# action = "immediate"
-# command = "\n"
-# enabled = true
-
-# Example: Another wait_for_time pattern
-# [[rules]]
-# name = "session_timeout"
-# pattern = "Session expires at (\\d{1,2}(?::\\d{2})?\\s?(?:am|pm)) \\((.*?)\\)"
-# action = "wait_for_time"
-# command = "refresh"
-# enabled = false
+[[rules]]
+name = "Proceed"
+pattern = "Do you want to proceed"
+action_type = "immediate"
+command = "\r"
+enabled = true

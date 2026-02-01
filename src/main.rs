@@ -54,12 +54,24 @@ async fn main() -> Result<()> {
     // Create action factory
     let factory = std::sync::Arc::new(action::factory::BuiltinActionFactory::new());
 
-    // Create monitor
-    let monitor = Monitor::new(pane_id, config.rules.clone(), factory);
+    // Create monitor with cooldown protection
+    let monitor = Monitor::new(
+        pane_id,
+        config.rules.clone(),
+        factory,
+        config.monitor.match_cooldown_secs,
+        config.monitor.lookback_lines,
+    );
 
     info!(
         "Monitoring pane {} every {} seconds",
         pane_id, config.monitor.poll_interval_secs
+    );
+    info!(
+        "Match cooldown: {}s | Send delay: {}ms | Lookback lines: {}",
+        config.monitor.match_cooldown_secs,
+        config.monitor.send_delay_ms,
+        config.monitor.lookback_lines
     );
     info!("Press Ctrl+C to stop");
 
@@ -115,10 +127,15 @@ async fn run_monitoring_loop(monitor: Monitor, config: &Config) -> Result<()> {
 
         info!("Executing action for rule '{}'", rule_name);
 
-        // Execute the action
+        // Execute the action (with configured send delay for terminal readiness)
         if let Err(e) = match_result
             .action
-            .execute(pane_id, match_result.match_data, &match_result.rule.action)
+            .execute(
+                pane_id,
+                match_result.match_data,
+                &match_result.rule.action,
+                config.monitor.send_delay_ms,
+            )
             .await
         {
             error!("Failed to execute action: {}", e);

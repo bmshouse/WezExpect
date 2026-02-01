@@ -6,6 +6,12 @@ use async_trait::async_trait;
 use serde::Deserialize;
 use std::any::Any;
 
+/// Type-erased match data passed between `check_match` and `execute`.
+///
+/// Each action implementation defines its own match data struct and uses
+/// downcasting in `execute` to recover the concrete type.
+pub type MatchData = Box<dyn Any + Send>;
+
 /// Core trait that all actions must implement
 ///
 /// Actions are responsible for:
@@ -40,24 +46,34 @@ pub trait Action: Send + Sync {
     /// Validates the action-specific configuration
     ///
     /// Called during config loading to ensure all required fields are present
-    /// and valid for this action type.
+    /// and valid for this action type. Should check for:
+    /// - Required fields existence
+    /// - Field value validity (e.g., non-empty strings, valid regex patterns)
+    /// - Action-specific constraints
     fn validate_config(&self, config: &ActionConfig) -> Result<()>;
 
     /// Checks if the terminal content matches this action's pattern
     ///
-    /// Returns Some(Box<dyn Any>) with action-specific match data if there's a match,
-    /// or None if no match. The match data is passed to execute() later.
-    fn check_match(&self, content: &str, pattern: &str) -> Result<Option<Box<dyn Any + Send>>>;
+    /// Returns `Some(MatchData)` with action-specific match data if there's a match,
+    /// or `None` if no match. The match data is passed to `execute()` later.
+    fn check_match(&self, content: &str, pattern: &str) -> Result<Option<MatchData>>;
 
     /// Executes the action using the match data from check_match
     ///
     /// The match_data parameter contains action-specific data extracted
     /// during check_match (e.g., captured groups, extracted time info, etc.)
+    ///
+    /// # Arguments
+    /// * `pane_id` - The WezTerm pane ID to send commands to
+    /// * `match_data` - Action-specific match data from `check_match()`
+    /// * `config` - Action-specific configuration
+    /// * `send_delay_ms` - Milliseconds to wait before sending commands (ensures terminal is ready)
     async fn execute(
         &self,
         pane_id: u32,
-        match_data: Box<dyn Any + Send>,
+        match_data: MatchData,
         config: &ActionConfig,
+        send_delay_ms: u64,
     ) -> Result<()>;
 
     /// Returns the required number of capture groups, if applicable

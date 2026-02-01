@@ -1,3 +1,11 @@
+//! Asynchronous waiting utilities with progress logging for long waits.
+//!
+//! This module provides timezone-aware async waiting with intelligent progress logging:
+//! - Waits until a specific target DateTime
+//! - Logs periodic progress updates for waits longer than 1 minute
+//! - Uses adaptive logging intervals based on wait duration
+//! - Spawns background task for non-blocking progress updates
+
 use anyhow::Result;
 use chrono_tz::Tz;
 use tokio::time::{sleep_until, Duration, Instant};
@@ -5,18 +13,28 @@ use tokio::time::{sleep_until, Duration, Instant};
 /// Minimum wait duration (in seconds) to show progress updates
 const PROGRESS_LOG_THRESHOLD_SECS: u64 = 60;
 
-/// Wait duration (in seconds) threshold for using longer progress intervals
+/// Wait duration (in seconds) threshold for using longer progress intervals (5 minutes)
 const LONG_WAIT_THRESHOLD_SECS: u64 = 300;
 
-/// Progress log interval for long waits (> 5 minutes)
+/// Progress log interval for long waits (> 5 minutes) in seconds
 const LONG_WAIT_INTERVAL_SECS: u64 = 60;
 
-/// Progress log interval for shorter waits
+/// Progress log interval for shorter waits (1-5 minutes) in seconds
 const SHORT_WAIT_INTERVAL_SECS: u64 = 30;
 
 /// Wait until a specific target time
 ///
-/// Converts a timezone-aware DateTime to an Instant and sleeps until that moment
+/// Converts a timezone-aware DateTime to an Instant and sleeps until that moment.
+/// For waits longer than 1 minute, spawns a background task that logs progress updates.
+///
+/// # Examples
+/// ```ignore
+/// let tz: Tz = "America/New_York".parse().unwrap();
+/// let target = Utc::now().with_timezone(&tz) + chrono::Duration::hours(2);
+///
+/// // Wait until the target time (with progress logging)
+/// wait_until(target).await?;
+/// ```
 pub async fn wait_until(target: chrono::DateTime<Tz>) -> Result<()> {
     let now = chrono::Utc::now();
     let duration = target.signed_duration_since(now);

@@ -1,8 +1,7 @@
-use crate::action::{Action, ActionConfig};
+use crate::action::{Action, ActionConfig, MatchData};
 use anyhow::Result;
 use async_trait::async_trait;
 use regex::Regex;
-use std::any::Any;
 
 /// Empty match data for immediate action (no extraction needed)
 struct ImmediateMatch;
@@ -31,7 +30,7 @@ impl Action for ImmediateAction {
         }
     }
 
-    fn check_match(&self, content: &str, pattern: &str) -> Result<Option<Box<dyn Any + Send>>> {
+    fn check_match(&self, content: &str, pattern: &str) -> Result<Option<MatchData>> {
         let re = Regex::new(pattern)?;
 
         if re.is_match(content) {
@@ -45,15 +44,16 @@ impl Action for ImmediateAction {
     async fn execute(
         &self,
         pane_id: u32,
-        _match_data: Box<dyn Any + Send>,
+        _match_data: MatchData,
         config: &ActionConfig,
+        send_delay_ms: u64,
     ) -> Result<()> {
         tracing::info!("ImmediateAction executing");
 
-        // Send command immediately
+        // Send command immediately (with configured delay for terminal readiness)
         let command = config.command.as_ref().unwrap();
         tracing::info!("Sending command: '{}'", command);
-        crate::sender::send_command(pane_id, command).await?;
+        crate::sender::send_command(pane_id, command, send_delay_ms).await?;
 
         tracing::info!("ImmediateAction completed successfully!");
 

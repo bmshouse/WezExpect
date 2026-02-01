@@ -1,15 +1,28 @@
+//! WezTerm pane discovery and selection utilities.
+//!
+//! This module provides functionality to discover and select WezTerm panes using
+//! the `wezterm cli list` command. It supports:
+//! - Listing all available panes with metadata
+//! - Auto-selecting the first pane if none specified
+//! - Validating configured pane IDs exist
+//! - Helpful logging of available panes for user awareness
+
 use anyhow::{Context, Result};
 use serde::Deserialize;
 use tokio::process::Command;
 
-/// Information about a WezTerm pane from `wezterm cli list`
+/// Information about a WezTerm pane from `wezterm cli list`.
+///
+/// This structure is deserialized directly from WezTerm's JSON output.
 #[derive(Debug, Deserialize, Clone)]
 pub struct PaneInfo {
-    /// Unique identifier for this pane
+    /// Unique identifier for this pane (assigned by WezTerm)
     pub pane_id: u32,
-    /// Current title of the pane
+
+    /// Current title of the pane (often shows the running command or window title)
     pub title: String,
-    /// Current working directory in the pane
+
+    /// Current working directory in the pane (may be empty if not available)
     #[serde(default)]
     pub cwd: String,
 }

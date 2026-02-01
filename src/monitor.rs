@@ -1,22 +1,29 @@
+//! Terminal monitoring with pattern matching and duplicate prevention.
+//!
+//! This module implements the core monitoring logic for watching WezTerm panes
+//! and detecting pattern matches. It provides:
+//! - Content-based duplicate prevention using hashing
+//! - Time-based cooldown to prevent rapid re-matching
+//! - Configurable lookback lines to limit terminal history retrieval
+//! - Automatic content change detection
+//! - First-match-wins rule processing
+
 use anyhow::{Context, Result};
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 use tokio::process::Command;
 use tokio::sync::Mutex;
-use tokio::time::Duration;
+use tokio::time::{Duration, Instant};
 
-use crate::action::{Action, ActionFactory};
+use crate::action::{Action, ActionFactory, MatchData};
 use crate::config::Rule;
-
-/// Number of lines to retrieve from pane history when checking for timeout messages
-const PANE_HISTORY_LINES: &str = "-50";
 
 /// Result of a successful pattern match
 pub struct MatchResult {
     pub rule: Rule,
     pub action: Box<dyn Action>,
-    pub match_data: Box<dyn std::any::Any + Send>,
+    pub match_data: MatchData,
 }
 
 /// Monitor a WezTerm pane for timeout messages
@@ -26,17 +33,57 @@ pub struct Monitor {
     factory: Arc<dyn ActionFactory>,
     last_content: Arc<Mutex<String>>,
     last_content_hash: Arc<Mutex<Option<u64>>>, // Hash of content when last matched
+    last_match_time: Arc<Mutex<Option<Instant>>>, // Timestamp of last pattern match
+    match_cooldown: Duration,                   // Minimum time between pattern matches
+    lookback_lines: u32,                        // Number of lines to retrieve from pane history
 }
 
 impl Monitor {
     /// Create a new monitor for a WezTerm pane with rules and action factory
-    pub fn new(pane_id: u32, rules: Vec<Rule>, factory: Arc<dyn ActionFactory>) -> Self {
+    ///
+    /// # Arguments
+    /// * `pane_id` - The WezTerm pane ID to monitor
+    /// * `rules` - List of rules to check against (processed in order, first match wins)
+    /// * `factory` - Factory for creating action instances
+    /// * `match_cooldown_secs` - Minimum seconds between pattern matches (prevents rapid re-matching)
+    /// * `lookback_lines` - Number of lines to retrieve from pane history (prevents processing entire history)
+    ///
+    /// # Examples
+    /// ```no_run
+    /// use wez_expect::{Monitor, Config};
+    /// use wez_expect::action::factory::BuiltinActionFactory;
+    /// use std::sync::Arc;
+    ///
+    /// # async fn example() -> anyhow::Result<()> {
+    /// let config = Config::load("config.toml")?;
+    /// let factory = Arc::new(BuiltinActionFactory::new());
+    ///
+    /// let monitor = Monitor::new(
+    ///     1,                                      // pane_id
+    ///     config.rules.clone(),                   // rules
+    ///     factory,                                // factory
+    ///     60,                                     // 60 second cooldown
+    ///     50,                                     // lookback 50 lines
+    /// );
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn new(
+        pane_id: u32,
+        rules: Vec<Rule>,
+        factory: Arc<dyn ActionFactory>,
+        match_cooldown_secs: u64,
+        lookback_lines: u32,
+    ) -> Self {
         Self {
             pane_id,
             rules,
             factory,
             last_content: Arc::new(Mutex::new(String::new())),
             last_content_hash: Arc::new(Mutex::new(None)),
+            last_match_time: Arc::new(Mutex::new(None)),
+            match_cooldown: Duration::from_secs(match_cooldown_secs),
+            lookback_lines,
         }
     }
 
@@ -44,18 +91,34 @@ impl Monitor {
     ///
     /// Returns the first matching rule and its action with match data
     pub async fn check_for_timeout(&self) -> Result<Option<MatchResult>> {
-        // Get terminal content (last 50 lines to avoid processing entire history)
+        // Get terminal content (last N lines to avoid processing entire history)
         let content = self.get_pane_text().await?;
 
         // Update last content
         *self.last_content.lock().await = content.clone();
+
+        // Check if within cooldown period from last match
+        if let Some(last_match) = *self.last_match_time.lock().await {
+            let elapsed = last_match.elapsed();
+            if elapsed < self.match_cooldown {
+                let remaining = self.match_cooldown - elapsed;
+                tracing::debug!(
+                    "Skipping pattern check - within cooldown period ({:.1}s remaining)",
+                    remaining.as_secs_f64()
+                );
+                return Ok(None);
+            }
+        }
 
         // Check if content unchanged since last match
         let current_hash = calculate_hash(&content);
         let last_hash = *self.last_content_hash.lock().await;
 
         if Some(current_hash) == last_hash {
-            tracing::debug!("Skipping pattern check - content unchanged since last match");
+            tracing::debug!(
+                "Skipping pattern check - content unchanged since last match (hash: {})",
+                current_hash
+            );
             return Ok(None);
         }
 
@@ -76,6 +139,9 @@ impl Monitor {
 
                 // Store content hash to prevent re-matching on unchanged content
                 *self.last_content_hash.lock().await = Some(current_hash);
+
+                // Store match time to enforce cooldown period
+                *self.last_match_time.lock().await = Some(Instant::now());
 
                 return Ok(Some(MatchResult {
                     rule: rule.clone(),
@@ -103,6 +169,9 @@ impl Monitor {
                 *self.last_content.lock().await = current_content;
                 // Clear hash when content changes - allows matching again in new context
                 *self.last_content_hash.lock().await = None;
+                tracing::info!(
+                    "Terminal content changed - duplicate prevention cleared, pattern matching will resume"
+                );
                 return Ok(());
             }
         }
@@ -110,6 +179,9 @@ impl Monitor {
 
     /// Get text content from the pane
     async fn get_pane_text(&self) -> Result<String> {
+        // Format lookback_lines as negative number for wezterm (e.g., 50 -> "-50")
+        let start_line = format!("-{}", self.lookback_lines);
+
         let output = Command::new("wezterm")
             .args([
                 "cli",
@@ -117,7 +189,7 @@ impl Monitor {
                 "--pane-id",
                 &self.pane_id.to_string(),
                 "--start-line",
-                PANE_HISTORY_LINES,
+                &start_line,
             ])
             .output()
             .await
@@ -144,7 +216,11 @@ impl Monitor {
     }
 }
 
-/// Calculate hash of terminal content for duplicate detection
+/// Calculate hash of terminal content for duplicate detection.
+///
+/// Uses Rust's `DefaultHasher` (currently SipHash 1-3) for fast,
+/// non-cryptographic hashing of terminal content. The hash is used to
+/// detect when terminal content has changed since the last pattern match.
 fn calculate_hash(content: &str) -> u64 {
     let mut hasher = DefaultHasher::new();
     content.hash(&mut hasher);
@@ -171,7 +247,7 @@ mod tests {
             enabled: true,
         }];
         let factory = Arc::new(BuiltinActionFactory::new());
-        let monitor = Monitor::new(1, rules, factory);
+        let monitor = Monitor::new(1, rules, factory, 60, 50);
         assert_eq!(monitor.pane_id(), 1);
     }
 
@@ -220,10 +296,53 @@ mod tests {
             enabled: true,
         }];
         let factory = Arc::new(BuiltinActionFactory::new());
-        let monitor = Monitor::new(1, rules, factory);
+        let monitor = Monitor::new(1, rules, factory, 60, 50);
 
         // Verify initial state
         assert_eq!(*monitor.last_content_hash.lock().await, None);
+    }
+
+    #[tokio::test]
+    async fn test_monitor_lookback_lines_default() {
+        let rules = vec![Rule {
+            name: Some(String::from("test")),
+            pattern: r#"test"#.to_string(),
+            action: ActionConfig {
+                action_type: String::from("immediate"),
+                command: Some(String::from("cmd")),
+                extra: toml::Value::Table(Default::default()),
+            },
+            enabled: true,
+        }];
+        let factory = Arc::new(BuiltinActionFactory::new());
+        let monitor = Monitor::new(1, rules, factory, 60, 50);
+
+        assert_eq!(monitor.lookback_lines, 50);
+    }
+
+    #[tokio::test]
+    async fn test_monitor_lookback_lines_custom() {
+        let rules = vec![Rule {
+            name: Some(String::from("test")),
+            pattern: r#"test"#.to_string(),
+            action: ActionConfig {
+                action_type: String::from("immediate"),
+                command: Some(String::from("cmd")),
+                extra: toml::Value::Table(Default::default()),
+            },
+            enabled: true,
+        }];
+        let factory = Arc::new(BuiltinActionFactory::new());
+
+        // Test various lookback_lines values
+        let monitor_100 = Monitor::new(1, rules.clone(), factory.clone(), 60, 100);
+        assert_eq!(monitor_100.lookback_lines, 100);
+
+        let monitor_200 = Monitor::new(2, rules.clone(), factory.clone(), 60, 200);
+        assert_eq!(monitor_200.lookback_lines, 200);
+
+        let monitor_10 = Monitor::new(3, rules, factory, 60, 10);
+        assert_eq!(monitor_10.lookback_lines, 10);
     }
 
     // Note: Comprehensive testing of check_for_timeout() and wait_for_content_change()
@@ -232,4 +351,5 @@ mod tests {
     // 1. Duplicate prevention on unchanged content
     // 2. Re-matching when new content appears
     // 3. Hash clearing in wait_for_content_change()
+    // 4. Correct usage of lookback_lines when calling wezterm cli get-text
 }
