@@ -1,9 +1,8 @@
-use crate::action::{Action, ActionConfig};
+use crate::action::{Action, ActionConfig, MatchData};
 use anyhow::{Context, Result};
 use async_trait::async_trait;
 use regex::Regex;
 use serde::Deserialize;
-use std::any::Any;
 use std::collections::HashMap;
 use std::time::Duration;
 use tokio::process::Command;
@@ -108,7 +107,7 @@ impl Action for ExternalCommandAction {
         Ok(())
     }
 
-    fn check_match(&self, content: &str, pattern: &str) -> Result<Option<Box<dyn Any + Send>>> {
+    fn check_match(&self, content: &str, pattern: &str) -> Result<Option<MatchData>> {
         let re = Regex::new(pattern)?;
 
         if let Some(captures) = re.captures(content) {
@@ -136,8 +135,9 @@ impl Action for ExternalCommandAction {
     async fn execute(
         &self,
         _pane_id: u32,
-        match_data: Box<dyn Any + Send>,
+        match_data: MatchData,
         config: &ActionConfig,
+        _send_delay_ms: u64,
     ) -> Result<()> {
         tracing::info!("ExternalCommandAction executing");
 
@@ -289,7 +289,7 @@ mod tests {
 
         let match_data = Box::new(ExternalCommandMatch { captures: vec![] });
 
-        let result = action.execute(0, match_data, &config).await;
+        let result = action.execute(0, match_data, &config, 0).await;
         assert!(result.is_ok());
     }
 
@@ -302,7 +302,7 @@ mod tests {
             captures: vec!["hello".to_string(), "world".to_string()],
         });
 
-        let result = action.execute(0, match_data, &config).await;
+        let result = action.execute(0, match_data, &config, 0).await;
         assert!(result.is_ok());
     }
 }

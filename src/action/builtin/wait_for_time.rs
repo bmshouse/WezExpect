@@ -1,7 +1,6 @@
-use crate::action::{Action, ActionConfig};
+use crate::action::{Action, ActionConfig, MatchData};
 use anyhow::{Context, Result};
 use async_trait::async_trait;
-use std::any::Any;
 
 /// Match data extracted by WaitForTimeAction
 struct WaitForTimeMatch {
@@ -33,7 +32,7 @@ impl Action for WaitForTimeAction {
         }
     }
 
-    fn check_match(&self, content: &str, pattern: &str) -> Result<Option<Box<dyn Any + Send>>> {
+    fn check_match(&self, content: &str, pattern: &str) -> Result<Option<MatchData>> {
         // Extract time and timezone using the pattern
         let result = crate::parser::extract_time_and_timezone(content, pattern)?;
 
@@ -53,8 +52,9 @@ impl Action for WaitForTimeAction {
     async fn execute(
         &self,
         pane_id: u32,
-        match_data: Box<dyn Any + Send>,
+        match_data: MatchData,
         config: &ActionConfig,
+        send_delay_ms: u64,
     ) -> Result<()> {
         // Downcast match data
         let match_data = match_data
@@ -83,10 +83,10 @@ impl Action for WaitForTimeAction {
         // Wait until target time
         crate::scheduler::wait_until(target_time).await?;
 
-        // Send command
+        // Send command (with configured delay for terminal readiness)
         let command = config.command.as_ref().unwrap();
         tracing::info!("Sending command: '{}'", command);
-        crate::sender::send_command(pane_id, command).await?;
+        crate::sender::send_command(pane_id, command, send_delay_ms).await?;
 
         tracing::info!("WaitForTimeAction completed successfully!");
 

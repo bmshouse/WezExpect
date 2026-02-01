@@ -1,3 +1,12 @@
+//! Time and timezone parsing for wait_for_time actions.
+//!
+//! This module handles parsing time strings in various formats (e.g., "3pm", "11:30am")
+//! and converting them to timezone-aware DateTime objects. It supports:
+//! - 12-hour time format with am/pm
+//! - Automatic conversion to 24-hour format
+//! - Timezone-aware datetime construction
+//! - Automatic scheduling for next occurrence (today or tomorrow)
+
 use anyhow::{Context, Result};
 use chrono::{Duration, NaiveTime, TimeZone};
 use chrono_tz::Tz;
@@ -77,6 +86,17 @@ fn parse_time_string(time_str: &str) -> Result<(u32, u32)> {
 ///
 /// # Returns
 /// A DateTime<Tz> representing the next occurrence of that time
+///
+/// # Examples
+/// ```ignore
+/// // Parse "3pm" in Santiago timezone
+/// let result = parse_reset_time("3pm", "America/Santiago")?;
+/// // Returns a DateTime for the next 3pm in America/Santiago timezone
+///
+/// // Parse "11:30am" in New York timezone
+/// let result = parse_reset_time("11:30am", "America/New_York")?;
+/// // Returns a DateTime for the next 11:30am in America/New_York timezone
+/// ```
 pub fn parse_reset_time(time_str: &str, tz_str: &str) -> Result<chrono::DateTime<Tz>> {
     // Parse timezone
     let tz: Tz = tz_str
@@ -133,6 +153,15 @@ pub fn parse_reset_time(time_str: &str, tz_str: &str) -> Result<chrono::DateTime
 }
 
 /// Extract time and timezone from a message using the configured regex pattern
+///
+/// # Examples
+/// ```ignore
+/// let pattern = r#"Your limit will reset at (\d{1,2}(?::\d{2})?\s?(?:am|pm)) \((.*?)\)\."#;
+/// let text = "Your limit will reset at 3pm (America/Santiago).";
+///
+/// let result = extract_time_and_timezone(text, pattern)?;
+/// assert_eq!(result, Some(("3pm".to_string(), "America/Santiago".to_string())));
+/// ```
 pub fn extract_time_and_timezone(text: &str, pattern: &str) -> Result<Option<(String, String)>> {
     let re = Regex::new(pattern)?;
 

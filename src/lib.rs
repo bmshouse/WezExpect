@@ -16,7 +16,7 @@ mod monitor;
 mod pane;
 mod parser;
 mod scheduler;
-mod sender;
+pub mod sender; // Public for testing command sending
 mod utils;
 
 // Re-export internal modules for the binary

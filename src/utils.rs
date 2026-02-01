@@ -6,6 +6,7 @@
 /// - 3661 seconds → "1h 1m 1s"
 /// - 125 seconds → "2m 5s"
 /// - 45 seconds → "45s"
+#[must_use]
 pub fn format_duration(duration: std::time::Duration) -> String {
     let total_secs = duration.as_secs();
     let hours = total_secs / 3600;
