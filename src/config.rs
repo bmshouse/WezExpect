@@ -253,13 +253,7 @@ impl Config {
         let lines: Vec<&str> = contents.lines().collect();
 
         // Look for name = "..." in the next few lines after [[rules]]
-        for line in lines
-            .iter()
-            .skip(start_line)
-            .take(10)
-            .map(|s| s.trim())
-        {
-
+        for line in lines.iter().skip(start_line).take(10).map(|s| s.trim()) {
             // Stop if we hit another [[rules]] section
             if line == "[[rules]]" {
                 break;
