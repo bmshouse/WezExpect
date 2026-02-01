@@ -4,6 +4,28 @@
 # How often to check the terminal for timeout messages (in seconds)
 poll_interval_secs = 30
 
+# Delay before sending commands to terminal (in milliseconds)
+# Ensures terminal is ready to receive input, prevents dropped keystrokes
+# Increase if commands aren't registering (try 200-500ms)
+# Decrease for faster response (minimum 50ms recommended)
+# Set to 0 to disable (not recommended for interactive applications like Python)
+send_delay_ms = 100
+
+# Minimum time between pattern matches (in seconds)
+# Prevents rapid re-matching even if terminal content doesn't change
+# Useful when commands don't produce immediate visible output
+# Increase if pattern re-matches too quickly (try 120-300s)
+# Decrease for faster re-matching when needed (minimum 30s recommended)
+# Set to 0 to disable (not recommended)
+match_cooldown_secs = 60
+
+# Number of lines to retrieve from terminal history when checking for patterns
+# Prevents processing entire terminal history on each poll
+# Increase for patterns that may appear further back in history (try 100-500)
+# Decrease for performance and to prevent re-matching old patterns (minimum 10 recommended)
+# Default: 50
+lookback_lines = 50
+
 [pane]
 # Optional: Specify a specific WezTerm pane ID to monitor
 # If not specified, the first available pane will be auto-selected

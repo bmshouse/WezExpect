@@ -1,9 +1,8 @@
-use crate::action::{Action, ActionConfig};
+use crate::action::{Action, ActionConfig, MatchData};
 use anyhow::{Context, Result};
 use async_trait::async_trait;
 use regex::Regex;
 use serde::Deserialize;
-use std::any::Any;
 
 /// Configuration fields specific to conditional action
 #[derive(Debug, Clone, Deserialize)]
@@ -84,7 +83,7 @@ impl Action for ConditionalAction {
         Ok(())
     }
 
-    fn check_match(&self, content: &str, pattern: &str) -> Result<Option<Box<dyn Any + Send>>> {
+    fn check_match(&self, content: &str, pattern: &str) -> Result<Option<MatchData>> {
         let re = Regex::new(pattern)?;
 
         if re.is_match(content) {
@@ -101,8 +100,9 @@ impl Action for ConditionalAction {
     async fn execute(
         &self,
         pane_id: u32,
-        match_data: Box<dyn Any + Send>,
+        match_data: MatchData,
         config: &ActionConfig,
+        send_delay_ms: u64,
     ) -> Result<()> {
         tracing::info!("ConditionalAction executing");
 
@@ -163,8 +163,8 @@ impl Action for ConditionalAction {
             }
         );
 
-        // 9. Send the selected command
-        crate::sender::send_command(pane_id, command).await?;
+        // 9. Send the selected command (with configured delay for terminal readiness)
+        crate::sender::send_command(pane_id, command, send_delay_ms).await?;
 
         tracing::info!("ConditionalAction completed successfully!");
 
@@ -362,7 +362,7 @@ mod tests {
         // Note: This test will fail when actually trying to send the command
         // because we don't have a real WezTerm pane. We're just testing the logic flow.
         // In a real scenario, we'd need to mock sender::send_command
-        let result = action.execute(999, match_data, &config).await;
+        let result = action.execute(999, match_data, &config, 0).await;
 
         // The execute will fail at send_command, but we can verify it gets that far
         // by checking the error message doesn't mention capture groups or pattern matching
@@ -407,7 +407,7 @@ mod tests {
             extra: toml::Value::Table(extra),
         };
 
-        let result = action.execute(999, match_data, &config).await;
+        let result = action.execute(999, match_data, &config, 0).await;
 
         // Similar to above - will fail at send_command, but shouldn't have pattern errors
         if let Err(e) = result {
@@ -453,7 +453,7 @@ mod tests {
             extra: toml::Value::Table(extra),
         };
 
-        let result = action.execute(999, match_data, &config).await;
+        let result = action.execute(999, match_data, &config, 0).await;
 
         assert!(result.is_err());
         let err_msg = result.unwrap_err().to_string();
@@ -496,7 +496,7 @@ mod tests {
             extra: toml::Value::Table(extra),
         };
 
-        let result = action.execute(999, match_data, &config).await;
+        let result = action.execute(999, match_data, &config, 0).await;
 
         // Should not have capture-related errors
         if let Err(e) = result {

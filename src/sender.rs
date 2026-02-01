@@ -1,18 +1,47 @@
+//! Command sending to WezTerm panes with retry logic and terminal readiness handling.
+//!
+//! This module provides reliable command sending to WezTerm panes with:
+//! - Exponential backoff retry logic (3 attempts)
+//! - Configurable delay before sending to ensure terminal readiness
+//! - Comprehensive error reporting with context
+
 use anyhow::{Context, Result};
 use std::process::Stdio;
 use tokio::io::AsyncWriteExt;
 use tokio::process::Command;
 use tokio::time::{sleep, Duration};
 
+/// Maximum number of retry attempts for command sending
 const MAX_RETRIES: u32 = 3;
+
+/// Initial retry delay in milliseconds (doubles each attempt for exponential backoff)
 const RETRY_DELAY_MS: u64 = 500;
 
 /// Send a command to a WezTerm pane with retry logic
-pub async fn send_command(pane_id: u32, command: &str) -> Result<()> {
+///
+/// # Arguments
+/// * `pane_id` - The WezTerm pane ID to send the command to
+/// * `command` - The command string to send
+/// * `delay_ms` - Milliseconds to wait before sending (ensures terminal is ready)
+///
+/// # Examples
+/// ```no_run
+/// use wez_expect::sender::send_command;
+///
+/// # async fn example() -> anyhow::Result<()> {
+/// // Send a command with 100ms delay for terminal readiness
+/// send_command(1, "echo hello\n", 100).await?;
+///
+/// // Send with no delay (use when terminal is known to be ready)
+/// send_command(1, "\n", 0).await?;
+/// # Ok(())
+/// # }
+/// ```
+pub async fn send_command(pane_id: u32, command: &str, delay_ms: u64) -> Result<()> {
     let mut last_error = None;
 
     for attempt in 1..=MAX_RETRIES {
-        match try_send_command(pane_id, command).await {
+        match try_send_command(pane_id, command, delay_ms).await {
             Ok(_) => {
                 tracing::info!(
                     "Successfully sent command to pane {}: '{}'",
@@ -40,9 +69,7 @@ pub async fn send_command(pane_id: u32, command: &str) -> Result<()> {
     }
 
     // All retries exhausted
-    let error = last_error.unwrap_or_else(|| {
-        anyhow::anyhow!("No error recorded after retries (this should never happen)")
-    });
+    let error = last_error.expect("last_error should always be Some after retry loop");
     tracing::error!(
         "Failed to send command after {} attempts: {}",
         MAX_RETRIES,
@@ -52,7 +79,17 @@ pub async fn send_command(pane_id: u32, command: &str) -> Result<()> {
 }
 
 /// Attempt to send a command once
-async fn try_send_command(pane_id: u32, command: &str) -> Result<()> {
+async fn try_send_command(pane_id: u32, command: &str, delay_ms: u64) -> Result<()> {
+    // Wait before sending to ensure terminal is ready to receive input
+    // This prevents dropped keystrokes when terminal is busy or transitioning states
+    if delay_ms > 0 {
+        tracing::debug!(
+            "Waiting {}ms before sending command to ensure terminal readiness",
+            delay_ms
+        );
+        sleep(Duration::from_millis(delay_ms)).await;
+    }
+
     let mut child = Command::new("wezterm")
         .args([
             "cli",
@@ -181,8 +218,8 @@ mod tests {
         }
         let pane_id = panes[0].pane_id;
 
-        // Send a harmless command
-        let result = send_command(pane_id, "echo 'test'\n").await;
+        // Send a harmless command with no delay for testing
+        let result = send_command(pane_id, "echo 'test'\n", 0).await;
         assert!(result.is_ok());
     }
 
@@ -193,7 +230,7 @@ mod tests {
         let pane_id = panes[0].pane_id;
 
         // Test that newlines are properly sent
-        let result = send_command(pane_id, "\n").await;
+        let result = send_command(pane_id, "\n", 0).await;
         assert!(result.is_ok());
 
         // Give terminal time to process
@@ -220,7 +257,7 @@ mod tests {
         println!("Sending to pane {}", pane_id);
         println!("Watch the terminal for: newline, 'continue', newline");
 
-        let result = send_command(pane_id, "\ncontinue\n").await;
+        let result = send_command(pane_id, "\ncontinue\n", 100).await;
         println!("Result: {:?}", result);
 
         tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
@@ -263,7 +300,7 @@ mod tests {
 
         // Step 3: Send commands with newlines that will produce visible output
         let test_command = "echo HELLO\necho WORLD\n";
-        let send_result = send_command(pane_id, test_command).await;
+        let send_result = send_command(pane_id, test_command, 100).await;
         assert!(
             send_result.is_ok(),
             "Failed to send command: {:?}",
@@ -349,7 +386,7 @@ mod tests {
         // Test the actual problem case: "\ncontinue\n"
         // This should send: newline, then "continue", then newline
         let test_command = "echo 'TEST_MARKER'\n";
-        let send_result = send_command(pane_id, test_command).await;
+        let send_result = send_command(pane_id, test_command, 100).await;
         assert!(
             send_result.is_ok(),
             "Failed to send command: {:?}",
